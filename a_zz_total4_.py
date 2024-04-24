@@ -239,4 +239,200 @@ class Detect3:
         for kp in keypoints:
             x, y = int(kp.pt[0]), int(kp.pt[1])
             w, h = int(kp.size), int(kp.size)
-            if not self.is_within_ignore_region(x, y, w,ㅘ
+            if not self.is_within_ignore_region(x, y, w, h):
+                # Optionally draw rectangle around the keypoint
+                # cv2.rectangle(im_with_keypoints, (x - w // 2, y - h // 2), (x + w // 2, y + h // 2), (0, 255, 0), 2)
+                return im_with_keypoints, x, y, w, h
+        return im_with_keypoints, 960, 480, 0, 0
+
+
+class Recognize:
+    def __init__(self):
+        self.model = YOLO('2class.pt')
+        self.classes = {0: 'fixed', 1: 'quad'}
+        self.class_name = "Detecting..."
+        self.avg = [0, 0, 0]
+
+    def bounding_box(self, frame, x, y, w, h):
+        cropped = frame[(y - 30):(y + h + 30), (x - 30):(x + w + 30)]
+
+        if cropped.shape[0] > 0 and cropped.shape[1] > 0:
+            detection = self.model(cropped, verbose=False)[0]
+            probs = list(detection.probs.data.tolist())
+            probs.append(1)
+            self.avg = list(map(add, self.avg, probs))
+            if self.avg[2] == 10:
+                highest_prob = max(self.avg[:2])
+                highest_prob_index = self.avg.index(highest_prob)
+                self.class_name = self.classes[highest_prob_index]
+                self.avg = [0, 0, 0]
+            return self.class_name
+
+
+class LSTM:
+    def __init__(self, scaler_path, model_path):
+        warnings.filterwarnings("ignore", category=UserWarning)  # 경고 무시
+        self.scaler = joblib.load(scaler_path)
+        self.interpreter = tf.lite.Interpreter(model_path=model_path)
+        self.interpreter.allocate_tensors()
+        self.input_details = self.interpreter.get_input_details()
+        self.output_details = self.interpreter.get_output_details()
+
+    def predict(self, test_data):
+        test_data = np.array(test_data, dtype=np.float32).reshape(-1, 2)
+        scaled_test_data = self.scaler.transform(test_data)
+        scaled_test_data = scaled_test_data.reshape(1, -1, 2)
+        self.interpreter.set_tensor(self.input_details[0]['index'], scaled_test_data)
+        self.interpreter.invoke()
+        output_data = self.interpreter.get_tensor(self.output_details[0]['index'])
+        predicted_position = self.scaler.inverse_transform(output_data)
+
+        return predicted_position
+
+
+class Memorize:
+    def __init__(self, size=5):
+        self.size = size
+        self.queue = []
+
+    def add(self, x, y):
+        if len(self.queue) >= self.size:
+            self.queue.pop(0)
+        self.queue.append([x, y])
+
+    def get_all(self):
+        return self.queue
+
+
+class SetZoom:
+    def __init__(self):
+        self.zoom_array1 = [1, 3, 5, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 61, 62, 63, 64]
+        self.zoom_array2 = [1, 3, 5, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 120, 150, 300, 600]
+        self.expanding_area = 30
+        self.reducing_area = 100
+
+    def change_zoom(self, w, h, current_zoom):
+        area = w * h
+        if area < self.expanding_area:
+            indices = np.where(np.array(self.zoom_array1) == current_zoom)[0]
+            return self.zoom_array1[int(indices[0]) + 1]
+        if area > self.reducing_area:
+            indices = np.where(np.array(self.zoom_array1) == current_zoom)[0]
+            return self.zoom_array1[int(indices[0]) - 1]
+
+
+def your_speed(s, zoom, small=5):
+    if zoom <= 19:
+        divide = 1
+    elif 19 < zoom <= 40:
+        divide = 2
+    elif 40 < zoom < 60:
+        divide = 3
+    else:
+        divide = 5
+
+    s = abs(s)
+    if s > 150:
+        return s / 20 / divide
+    else:
+        return small / divide
+
+
+def your_move(zoom):
+    if zoom <= 20:
+        return 30
+    elif zoom <= 30:
+        return 40
+    else:
+        return 70
+
+
+def save_ptz_data_to_csv(yaw, pitch, name="ptz_data.csv"):
+    file_exists = os.path.isfile(name)
+    with open(name, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(["Timestamp", "Yaw", "Pitch"])
+        writer.writerow([datetime.now(), yaw, pitch])
+
+
+def init_ptz_angle(camera_lat, camera_lon, drone_lat, drone_lon, drone_h):
+    delta_x = drone_lat - camera_lat
+    delta_y = drone_lon - camera_lon
+    d = math.sqrt(delta_x ** 2 + delta_y ** 2) * 6371000 * math.pi / 180
+
+    pan = math.atan(delta_y / delta_x) * 180 / math.pi
+    tilt = math.atan(h / d) * 180 / math.pi
+
+    return pan, tilt
+
+
+a, b, x, y, h = 35.227481, 126.840202, 35.228512, 126.840277, 80
+pan, tilt = init_ptz_angle(a, b, x, y, h)
+
+if __name__ == "__main__":
+    # region class declare
+    ptz = PTZ()
+    vision = VISION()
+    detect = Detect1(vision)
+    recognize = Recognize()
+    lstm = LSTM('scaler.pkl', 'lstm_drone_positions_model.tflite')
+    memorize = Memorize()
+    set_zoom = SetZoom()
+    # endregion
+
+    ptz.yaw_pitch(pan, tilt, 50, 50)
+    # ptz.yaw_pitch(0, 30, 50, 50)
+    zoom = 15
+    ptz.zoom(zoom)
+    time.sleep(5)
+
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    current_date_time = datetime.now().strftime('%Y%m%d0_%H%M%S')
+    filename = f'{current_date_time}.avi'
+    out = cv2.VideoWriter(filename, fourcc, 20.0, (1920, 960))
+    step = 0
+    class_name = None
+
+    try:
+        while True:
+            if vision.frame is not None:
+                processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
+                # cv2.putText(processed_frame, class_name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+                step += 1
+                if step % 31 == 0:
+                    class_name = recognize.bounding_box(processed_frame, x, y, w, h)
+
+                if step % 50 == 0:
+                    zoom = set_zoom.change_zoom(2, 3, zoom)
+                    ptz.zoom(zoom)
+
+                screen_frame = cv2.resize(processed_frame, (960, 480))
+                cv2.imshow('Processed RTSP Stream', screen_frame)
+                out.write(processed_frame)
+
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+
+                # region ptz control, speed setting
+                dx = (x + w / 2) - 960
+                dy = -(y + h / 2) + 480
+
+                memorize.add(dx, dy)
+                past_dataset = memorize.get_all()
+                if len(past_dataset) == 5:
+                    dx = lstm.predict(past_dataset)[0][0]
+                    dy = lstm.predict(past_dataset)[0][1]
+
+                ptz.get_angle()
+                ptz.yaw_pitch(yaw=ptz.yaw + dx / your_move(zoom), pitch=ptz.pitch + dy / your_move(zoom),
+                              yaw_speed=your_speed(dx, zoom),
+                              pitch_speed=your_speed(dy, zoom))
+                # endregion
+
+                save_ptz_data_to_csv(ptz.yaw, ptz.pitch)
+
+    finally:
+        out.release()
+        cv2.destroyAllWindows()
