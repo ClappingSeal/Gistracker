@@ -15,16 +15,31 @@ import warnings
 import csv
 import os
 import math
+from dronekit import connect
+import logging
+
+tf.debugging.set_log_device_placement(True)
+logging.getLogger('dronekit').setLevel(logging.CRITICAL)
+
+
+class Variable:
+    drone_lat = 35.228512
+    drone_lon = 126.840277
+    drone_height = 80
+
+    port_arduino = 'COM8'
+    port_cube = 'COM5'
+    ip_address = '192.168.1.3'
 
 
 class PTZ:
     def __init__(self):
         print("connecting ptz...")
-        self.port = 'COM5'
+        self.port = Variable.port_arduino
         self.baud_rate = 115200
         self.ser = serial.Serial(self.port, self.baud_rate)
 
-        self.ip_address = '192.168.1.3'
+        self.ip_address = Variable.ip_address
         self.username = 'admin'
         self.password = '123456'
         self.ptz_control_url = f'http://{self.ip_address}/cgi-bin/getuid?username={self.username}&password={self.password}'
@@ -88,7 +103,7 @@ class PTZ:
 class VISION:
     def __init__(self):
         print("connecting camera...")
-        self.rtsp_url = 'rtsp://admin:123456@192.168.1.3/stream0'
+        self.rtsp_url = f'rtsp://admin:123456@{Variable.ip_address}/stream0'
         self.frame = None
         self.stream_thread = threading.Thread(target=self.rtsp_stream_handler)
 
@@ -106,6 +121,26 @@ class VISION:
             self.frame = cv2.resize(frame, (1920, 960))
 
         cap.release()
+
+
+class CubeOrange:
+    def __init__(self):
+        self.connection_string = Variable.port_cube
+        self.baudrate = 115200
+        self.vehicle = connect(self.connection_string, wait_ready=True, baud=self.baudrate, timeout=100)
+
+    def get_pos(self):
+        init_lat = self.vehicle.location.global_relative_frame.lat
+        init_lon = self.vehicle.location.global_relative_frame.lon
+
+        if init_lat == 0 or init_lon == 0:
+            print("Go outside!")
+
+        return init_lat, init_lon
+
+    def get_direction(self):
+        heading = self.vehicle.heading
+        return heading
 
 
 # not use
@@ -356,24 +391,24 @@ def save_ptz_data_to_csv(yaw, pitch, name="ptz_data.csv"):
         writer.writerow([datetime.now(), yaw, pitch])
 
 
-def init_ptz_angle(camera_lat, camera_lon, drone_lat, drone_lon, drone_h):
+def init_ptz_angle(camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
     delta_x = drone_lat - camera_lat
     delta_y = drone_lon - camera_lon
     d = math.sqrt(delta_x ** 2 + delta_y ** 2) * 6371000 * math.pi / 180
 
-    pan = math.atan(delta_y / delta_x) * 180 / math.pi
-    tilt = math.atan(h / d) * 180 / math.pi
+    pan = math.atan(delta_y / delta_x) * 180 / math.pi - camera_heading
+    tilt = math.atan(drone_h / d) * 180 / math.pi
 
     return pan, tilt
 
 
 a, b, x, y, h = 35.227481, 126.840202, 35.228512, 126.840277, 80
-pan, tilt = init_ptz_angle(a, b, x, y, h)
 
 if __name__ == "__main__":
     # region class declare
     ptz = PTZ()
     vision = VISION()
+    cube = CubeOrange()
     detect = Detect1(vision)
     recognize = Recognize()
     lstm = LSTM('scaler.pkl', 'lstm_drone_positions_model.tflite')
@@ -381,9 +416,15 @@ if __name__ == "__main__":
     set_zoom = SetZoom()
     # endregion
 
+    lat, lon = cube.get_pos()
+    lat, lon = 35.227481, 126.840202
+
+    heading = cube.get_direction()
+    pan, tilt = init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height, heading)
+
     ptz.yaw_pitch(pan, tilt, 50, 50)
-    # ptz.yaw_pitch(0, 30, 50, 50)
-    zoom = 15
+
+    zoom = 1  # 추후 드론 거리를 기반으로 줌 하기
     ptz.zoom(zoom)
     time.sleep(5)
 
