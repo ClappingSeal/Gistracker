@@ -27,7 +27,7 @@ class Variable:
     drone_lon = 126.840277
     drone_height = 80
 
-    port_arduino = 'COM8'
+    port_arduino = 'COM10'
     port_cube = 'COM5'
     ip_address = '192.168.1.3'
 
@@ -55,7 +55,7 @@ class PTZ:
         self.pitch = 0
 
     def set_motor(self, angle1, angle2, velocity1, velocity2):
-        command = f"{angle1} {angle2} {velocity1} {velocity2}\n"
+        command = f"{angle1} {velocity1} {angle2} {velocity2}\n"
         self.ser.write(command.encode())
 
     def zoom(self, num):
@@ -77,13 +77,10 @@ class PTZ:
             yaw = 90
         if yaw < -90:
             yaw = -90
-        if pitch > 60:
-            pitch = 60
-        if pitch < 0:
-            pitch = 0
 
-        yaw = 148 - yaw
-        pitch = 148 + pitch
+        yaw = int(((180 - yaw) / 90 * 1024))
+        pitch = int(2048 + pitch / 90 * 1024)
+
         self.set_motor(yaw, pitch, yaw_speed, pitch_speed)
 
     def get_angle(self):
@@ -93,9 +90,10 @@ class PTZ:
         if self.ser.inWaiting() > 0:
             data = self.ser.readline().decode().strip()
             angles = data.split(' ')
+
             if len(angles) == 2:
-                self.yaw = 146.5 - int(angles[0])
-                self.pitch = -147 + int(angles[1])
+                self.yaw = (2048 - int(angles[0])) / 1024 * 90
+                self.pitch = (-2048 + int(angles[1])) / 1024 * 90
 
         return self.yaw, self.pitch
 
