@@ -246,6 +246,14 @@ class Detect3:
         self.params.filterByArea = True
         self.params.minArea = 10
         self.params.maxArea = 1000
+
+        self.params.filterByCircularity = False
+        self.params.minCircularity = 0.1
+        self.params.filterByConvexity = False
+        self.params.minConvexity = 0.87
+        self.params.filterByInertia = False
+        self.params.minInertiaRatio = 0.01
+
         self.detector = cv2.SimpleBlobDetector_create(self.params)
         self.ignore_region = (1800, 850, 180, 90)
 
@@ -263,20 +271,14 @@ class Detect3:
         keypoints = self.detector.detect(frame)
         if keypoints:
             largest_keypoint = max(keypoints, key=lambda keypoint: keypoint.size)
-            keypoints = [largest_keypoint]  # Only keep the largest keypoint
 
-        # Draw detected blobs as red circles
-        im_with_keypoints = cv2.drawKeypoints(frame, keypoints, np.array([]), (0, 0, 255),
-                                              cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-        for kp in keypoints:
-            x, y = int(kp.pt[0]), int(kp.pt[1])
-            w, h = int(kp.size), int(kp.size)
-            if not self.is_within_ignore_region(x, y, w, h):
-                # Optionally draw rectangle around the keypoint
-                # cv2.rectangle(im_with_keypoints, (x - w // 2, y - h // 2), (x + w // 2, y + h // 2), (0, 255, 0), 2)
-                return im_with_keypoints, x, y, w, h
-        return im_with_keypoints, 960, 480, 0, 0
+            xy = largest_keypoint.pt
+            r = int(largest_keypoint.size)
+            largest_rect = (int(xy[0]) - r - 5, int(xy[1]) - r - 5, r * 2 + 10, r * 2 + 10)
+            x, y, w, h = largest_rect
+            return x, y, w, h
+        else:
+            return 960, 480, 0, 0
 
 
 class Recognize:
