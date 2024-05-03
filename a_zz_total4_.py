@@ -196,7 +196,7 @@ class Detect1:
 
         if largest_rect is not None:
             x, y, w, h = largest_rect
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            # cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
             return frame, x, y, w, h
 
         return frame, 960, 480, 0, 0
@@ -283,9 +283,12 @@ class Detect3:
             r = int(largest_keypoint.size)
             largest_rect = (int(xy[0]) - r - 5, int(xy[1]) - r - 5, r * 2 + 10, r * 2 + 10)
             x, y, w, h = largest_rect
-            return x, y, w, h
+
+            # cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+            return frame, x, y, w, h
         else:
-            return 960, 480, 0, 0
+            return frame, 960, 480, 0, 0
 
 
 class Recognize:
@@ -412,7 +415,7 @@ if __name__ == "__main__":
     ptz = PTZ()
     vision = VISION()
     cube = CubeOrange()
-    detect = Detect1(vision)
+    detect = Detect3(vision)
     recognize = Recognize()
     lstm = LSTM('scaler.pkl', 'lstm_drone_positions_model.tflite')
     memorize = Memorize()
@@ -426,7 +429,7 @@ if __name__ == "__main__":
 
     ptz.yaw_pitch(pan, tilt, 50, 50)
 
-    zoom = 30  # 추후 드론 거리를 기반으로 줌 하기
+    zoom = 10  # 나중에 거리에 따라 수식사용?
     ptz.zoom(zoom)
     time.sleep(5)
 
@@ -448,7 +451,7 @@ if __name__ == "__main__":
                     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
 
                 if step % 50 == 0:
-                    zoom = set_zoom.change_zoom(2, 3, zoom)
+                    zoom = set_zoom.change_zoom(w, h, zoom)
                     ptz.zoom(zoom)
 
                 screen_frame = cv2.resize(processed_frame, (960, 480))
