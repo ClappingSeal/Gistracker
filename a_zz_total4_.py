@@ -78,6 +78,11 @@ class PTZ:
         if yaw < -90:
             yaw = -90
 
+        if pitch > 60:
+            pitch = 60
+        if pitch < 0:
+            pitch = 0
+
         yaw = int(((180 - yaw) / 90 * 1024))
         pitch = int(2048 + pitch / 90 * 1024)
 
