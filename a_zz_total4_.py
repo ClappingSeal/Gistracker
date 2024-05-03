@@ -24,10 +24,10 @@ logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 
 class Variable:
     drone_lat = 35.228512
-    drone_lon = 126.840277
+    drone_lon = 226.840277
     drone_height = 80
 
-    port_arduino = 'COM10'
+    port_arduino = 'COM14'
     port_cube = 'COM5'
     ip_address = '192.168.1.3'
 
@@ -85,6 +85,8 @@ class PTZ:
 
         yaw = int(((180 - yaw) / 90 * 1024))
         pitch = int(2048 + pitch / 90 * 1024)
+        yaw_speed = int(yaw_speed)
+        pitch_speed = int(pitch_speed)
 
         self.set_motor(yaw, pitch, yaw_speed, pitch_speed)
 
@@ -194,7 +196,7 @@ class Detect1:
 
         if largest_rect is not None:
             x, y, w, h = largest_rect
-            # cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
             return frame, x, y, w, h
 
         return frame, 960, 480, 0, 0
@@ -348,8 +350,8 @@ class SetZoom:
     def __init__(self):
         self.zoom_array1 = [1, 3, 5, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 61, 62, 63, 64]
         self.zoom_array2 = [1, 3, 5, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 120, 150, 300, 600]
-        self.expanding_area = 30
-        self.reducing_area = 100
+        self.expanding_area = 100
+        self.reducing_area = 400
 
     def change_zoom(self, w, h, current_zoom):
         area = w * h
@@ -361,53 +363,49 @@ class SetZoom:
             return self.zoom_array1[int(indices[0]) - 1]
 
 
-def your_speed(s, zoom, small=5):
-    if zoom <= 19:
-        divide = 1
-    elif 19 < zoom <= 40:
-        divide = 2
-    elif 40 < zoom < 60:
-        divide = 3
-    else:
-        divide = 5
+class Function:
+    def your_speed(s, zoom, small=5):
+        if zoom <= 19:
+            divide = 1
+        elif 19 < zoom <= 40:
+            divide = 2
+        elif 40 < zoom < 60:
+            divide = 3
+        else:
+            divide = 5
 
-    s = abs(s)
-    if s > 150:
-        return s / 20 / divide
-    else:
-        return small / divide
+        s = abs(s)
+        if s > 150:
+            return int(s / 20 / divide)
+        else:
+            return int(small / divide)
 
+    def your_move(zoom):
+        if zoom <= 20:
+            return 30
+        elif zoom <= 30:
+            return 40
+        else:
+            return 70
 
-def your_move(zoom):
-    if zoom <= 20:
-        return 30
-    elif zoom <= 30:
-        return 40
-    else:
-        return 70
+    def save_ptz_data_to_csv(yaw, pitch, name="ptz_data.csv"):
+        file_exists = os.path.isfile(name)
+        with open(name, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            if not file_exists:
+                writer.writerow(["Timestamp", "Yaw", "Pitch"])
+            writer.writerow([datetime.now(), yaw, pitch])
 
+    def init_ptz_angle(camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
+        delta_x = drone_lat - camera_lat
+        delta_y = drone_lon - camera_lon
+        d = math.sqrt(delta_x ** 2 + delta_y ** 2) * 6371000 * math.pi / 180
 
-def save_ptz_data_to_csv(yaw, pitch, name="ptz_data.csv"):
-    file_exists = os.path.isfile(name)
-    with open(name, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        if not file_exists:
-            writer.writerow(["Timestamp", "Yaw", "Pitch"])
-        writer.writerow([datetime.now(), yaw, pitch])
+        pan = math.atan(delta_y / delta_x) * 180 / math.pi - camera_heading
+        tilt = math.atan(drone_h / d) * 180 / math.pi
 
+        return pan, tilt
 
-def init_ptz_angle(camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
-    delta_x = drone_lat - camera_lat
-    delta_y = drone_lon - camera_lon
-    d = math.sqrt(delta_x ** 2 + delta_y ** 2) * 6371000 * math.pi / 180
-
-    pan = math.atan(delta_y / delta_x) * 180 / math.pi - camera_heading
-    tilt = math.atan(drone_h / d) * 180 / math.pi
-
-    return pan, tilt
-
-
-a, b, x, y, h = 35.227481, 126.840202, 35.228512, 126.840277, 80
 
 if __name__ == "__main__":
     # region class declare
@@ -422,14 +420,13 @@ if __name__ == "__main__":
     # endregion
 
     lat, lon = cube.get_pos()
-    lat, lon = 35.227481, 126.840202
-
     heading = cube.get_direction()
-    pan, tilt = init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height, heading)
+    pan, tilt = Function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
+                                        heading)
 
     ptz.yaw_pitch(pan, tilt, 50, 50)
 
-    zoom = 1  # 추후 드론 거리를 기반으로 줌 하기
+    zoom = 30  # 추후 드론 거리를 기반으로 줌 하기
     ptz.zoom(zoom)
     time.sleep(5)
 
@@ -464,6 +461,7 @@ if __name__ == "__main__":
                 # region ptz control, speed setting
                 dx = (x + w / 2) - 960
                 dy = -(y + h / 2) + 480
+                print(w * h)
 
                 memorize.add(dx, dy)
                 past_dataset = memorize.get_all()
@@ -472,12 +470,13 @@ if __name__ == "__main__":
                     dy = lstm.predict(past_dataset)[0][1]
 
                 ptz.get_angle()
-                ptz.yaw_pitch(yaw=ptz.yaw + dx / your_move(zoom), pitch=ptz.pitch + dy / your_move(zoom),
-                              yaw_speed=your_speed(dx, zoom),
-                              pitch_speed=your_speed(dy, zoom))
-                # endregion
+                ptz.yaw_pitch(yaw=ptz.yaw + dx / Function.your_move(zoom),
+                              pitch=ptz.pitch + dy / Function.your_move(zoom),
+                              yaw_speed=Function.your_speed(dx, zoom),
+                              pitch_speed=Function.your_speed(dy, zoom))
 
-                save_ptz_data_to_csv(ptz.yaw, ptz.pitch)
+                # endregion
+                Function.save_ptz_data_to_csv(ptz.yaw, ptz.pitch)
 
     finally:
         out.release()

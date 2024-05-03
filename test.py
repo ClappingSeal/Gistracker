@@ -75,6 +75,8 @@ class PTZ:
 
         yaw = int(((180 - yaw) / 90 * 1024))
         pitch = int(2048 + pitch / 90 * 1024)
+        yaw_speed = int(yaw_speed)
+        pitch_speed = int(pitch_speed)
 
         self.set_motor(yaw, pitch, yaw_speed, pitch_speed)
 
@@ -94,10 +96,15 @@ class PTZ:
 
 
 ptz = PTZ()
-for i in range(0, 10):
-    ptz.yaw_pitch(0, 0, 50, 50)
-    time.sleep(2)
-    ptz.yaw_pitch(0, 90, 50, 50)
-    time.sleep(2)
 
+ptz.yaw_pitch(0, 5, 100, 1)
+time.sleep(3)
+print(ptz.get_angle())
+
+ptz.yaw_pitch(0, 5.1, 200, 2)
+time.sleep(3)
+print(ptz.get_angle())
+
+ptz.yaw_pitch(0, 6, 500, 5)
+time.sleep(3)
 print(ptz.get_angle())
