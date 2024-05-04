@@ -396,7 +396,11 @@ class Memorize:
 class SetZoom:
     def __init__(self):
         self.zoom_array1 = [1, 3, 5, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 61, 62, 63, 64]
-        self.zoom_array2 = [1, 3, 5, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 120, 150, 300, 600]
+        self.zoom_array2 = [1, 3, 5, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 120, 240, 300, 600]
+
+        self.zoom_array1 = [15, 30, 60, 61, 62]
+        self.zoom_array2 = [15, 30, 60, 120, 240]
+
         self.expanding_area = 100
         self.reducing_area = 400
 
@@ -454,9 +458,9 @@ if __name__ == "__main__":
                 if step % 31 == 0:
                     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
 
-                if step % 50 == 0:
-                    zoom = set_zoom.change_zoom(w, h, zoom)
-                    ptz.zoom(zoom)
+                # if step % 50 == 0:
+                #     zoom = set_zoom.change_zoom(w, h, zoom)
+                #     ptz.zoom(zoom)
 
                 screen_frame = cv2.resize(processed_frame, (960, 480))
                 cv2.imshow('Processed RTSP Stream', screen_frame)
@@ -475,6 +479,8 @@ if __name__ == "__main__":
                 if len(past_dataset) == 5:
                     dx = lstm.predict(past_dataset)[0][0]
                     dy = lstm.predict(past_dataset)[0][1]
+
+                dx, dy = 0, 0
 
                 ptz.get_angle()
                 ptz.yaw_pitch(yaw=ptz.yaw + dx / Function.your_move(zoom),
