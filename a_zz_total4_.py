@@ -32,6 +32,50 @@ class Variable:
     ip_address = '192.168.1.3'
 
 
+class Function:
+    def your_speed(s, zoom, small=5):
+        if zoom <= 19:
+            divide = 1
+        elif 19 < zoom <= 40:
+            divide = 2
+        elif 40 < zoom < 60:
+            divide = 3
+        else:
+            divide = 5
+
+        s = abs(s)
+        if s > 150:
+            return int(s / 20 / divide)
+        else:
+            return int(small / divide)
+
+    def your_move(zoom):
+        if zoom <= 20:
+            return 30
+        elif zoom <= 30:
+            return 40
+        else:
+            return 70
+
+    def save_ptz_data_to_csv(yaw, pitch, name="ptz_data.csv"):
+        file_exists = os.path.isfile(name)
+        with open(name, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            if not file_exists:
+                writer.writerow(["Timestamp", "Yaw", "Pitch"])
+            writer.writerow([datetime.now(), yaw, pitch])
+
+    def init_ptz_angle(camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
+        delta_x = drone_lat - camera_lat
+        delta_y = drone_lon - camera_lon
+        d = math.sqrt(delta_x ** 2 + delta_y ** 2) * 6371000 * math.pi / 180
+
+        pan = math.atan(delta_y / delta_x) * 180 / math.pi - camera_heading
+        tilt = math.atan(drone_h / d) * 180 / math.pi
+
+        return pan, tilt
+
+
 class PTZ:
     def __init__(self):
         print("connecting ptz...")
@@ -366,52 +410,8 @@ class SetZoom:
             return self.zoom_array1[int(indices[0]) - 1]
 
 
-class Function:
-    def your_speed(s, zoom, small=5):
-        if zoom <= 19:
-            divide = 1
-        elif 19 < zoom <= 40:
-            divide = 2
-        elif 40 < zoom < 60:
-            divide = 3
-        else:
-            divide = 5
-
-        s = abs(s)
-        if s > 150:
-            return int(s / 20 / divide)
-        else:
-            return int(small / divide)
-
-    def your_move(zoom):
-        if zoom <= 20:
-            return 30
-        elif zoom <= 30:
-            return 40
-        else:
-            return 70
-
-    def save_ptz_data_to_csv(yaw, pitch, name="ptz_data.csv"):
-        file_exists = os.path.isfile(name)
-        with open(name, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            if not file_exists:
-                writer.writerow(["Timestamp", "Yaw", "Pitch"])
-            writer.writerow([datetime.now(), yaw, pitch])
-
-    def init_ptz_angle(camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
-        delta_x = drone_lat - camera_lat
-        delta_y = drone_lon - camera_lon
-        d = math.sqrt(delta_x ** 2 + delta_y ** 2) * 6371000 * math.pi / 180
-
-        pan = math.atan(delta_y / delta_x) * 180 / math.pi - camera_heading
-        tilt = math.atan(drone_h / d) * 180 / math.pi
-
-        return pan, tilt
-
-
 if __name__ == "__main__":
-    # region class declare
+    # region 1. class declare
     ptz = PTZ()
     vision = VISION()
     cube = CubeOrange()
@@ -422,6 +422,7 @@ if __name__ == "__main__":
     set_zoom = SetZoom()
     # endregion
 
+    # region 2. initial ptz settings
     lat, lon = cube.get_pos()
     heading = cube.get_direction()
     pan, tilt = Function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
@@ -432,13 +433,16 @@ if __name__ == "__main__":
     zoom = 10  # 나중에 거리에 따라 수식사용?
     ptz.zoom(zoom)
     time.sleep(5)
+    # endregion
 
+    # region 3. camera open
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     current_date_time = datetime.now().strftime('%Y%m%d0_%H%M%S')
     filename = f'{current_date_time}.avi'
     out = cv2.VideoWriter(filename, fourcc, 20.0, (1920, 960))
     step = 0
     class_name = None
+    # endregion
 
     try:
         while True:
