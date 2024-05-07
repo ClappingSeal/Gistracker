@@ -35,27 +35,27 @@ class Variable:
 class Function:
     def your_speed(self, s, zoom, small=5):
         if zoom <= 19:
-            divide = 1
+            divide = 30
         elif 19 < zoom <= 40:
-            divide = 3
+            divide = 50
         elif 40 < zoom < 60:
-            divide = 5
+            divide = 80
         else:
-            divide = 5
+            divide = 100
 
         s = abs(s)
         if s > 100:
-            return int(s / 20 / divide)
+            return int(s / divide)
         else:
             return 1
 
     def your_move(self, zoom):
         if zoom <= 20:
-            return 100
+            return 20
         elif zoom <= 30:
-            return 100
+            return 50
         else:
-            return 200
+            return 100
 
     def save_ptz_data_to_csv(self, yaw, pitch, name="ptz_data.csv"):
         file_exists = os.path.isfile(name)
@@ -136,7 +136,7 @@ class PTZ:
 
     def get_angle(self):
         self.ser.write(b'1\n')
-        time.sleep(0.1)
+        time.sleep(0.01)
 
         if self.ser.inWaiting() > 0:
             data = self.ser.readline().decode().strip()
@@ -431,7 +431,6 @@ class SetZoom:
 
     def change_zoom(self, w, h, current_zoom):
         area = w * h
-        print(area)
         # reducing
         if area > self.reducing_area or area == 0:
             indices = np.where(np.array(self.zoom_array1) == current_zoom)[0]
@@ -460,7 +459,7 @@ if __name__ == "__main__":
     ptz = PTZ()
     vision = VISION()
     cube = CubeOrange()
-    detect = Detect3(vision)
+    detect = DetectPink(vision)
     recognize = Recognize()
     lstm = LSTM('scaler.pkl', 'lstm_drone_positions_model.tflite')
     memorize = Memorize()
@@ -478,7 +477,7 @@ if __name__ == "__main__":
 
     zoom = 10  # 나중에 거리에 따라 수식사용?
     ptz.zoom(zoom)
-    time.sleep(3)
+    time.sleep(5)
     # endregion
 
     # region 3. camera open
@@ -500,7 +499,7 @@ if __name__ == "__main__":
                 # if step % 31 == 0:
                 #     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
 
-                if step % 5 == 0:
+                if step % 20 == 0:
                     zoom = set_zoom.change_zoom(w, h, zoom)
                     ptz.zoom(zoom)
 
@@ -523,13 +522,11 @@ if __name__ == "__main__":
 
                 ptz.get_angle()
 
-                print(dy / function.your_move(zoom), function.your_speed(dx, zoom))
-
+                print(dx, dy)
                 ptz.yaw_pitch(yaw=ptz.yaw + dx / function.your_move(zoom),
                               pitch=ptz.pitch + dy / function.your_move(zoom),
                               yaw_speed=function.your_speed(dx, zoom),
                               pitch_speed=function.your_speed(dy, zoom))
-
                 # endregion
                 function.save_ptz_data_to_csv(ptz.yaw, ptz.pitch)
 
