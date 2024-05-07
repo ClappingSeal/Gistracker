@@ -339,7 +339,7 @@ class Detect3:
             x, y, w, h = largest_rect
 
             if not self.is_within_ignore_region(x, y, w, h):
-                # cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 return frame, x, y, w, h
             else:
                 return frame, 960, 480, 0, 0
@@ -437,7 +437,7 @@ class SetZoom:
         # self.zoom_array2 = [15, 30, 60, 120, 240]
 
         self.expanding_area = 200
-        self.reducing_area = 1000
+        self.reducing_area = 2000
 
     def change_zoom(self, w, h, current_zoom):
         area = w * h
@@ -508,7 +508,7 @@ if __name__ == "__main__":
                 if step % 31 == 0:
                     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
 
-                if step % 50 == 0:
+                if step % 100 == 0:
                     new_zoom = set_zoom.change_zoom(w, h, zoom)
                     if new_zoom == zoom:
                         continue
