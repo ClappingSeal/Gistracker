@@ -23,9 +23,9 @@ logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 
 
 class Variable:
-    drone_lat = 35.228512
-    drone_lon = 226.840277
-    drone_height = 80
+    drone_lat = 35.228610
+    drone_lon = 126.841100
+    drone_height = 98
 
     port_arduino = 'COM14'
     port_cube = 'COM5'
@@ -33,31 +33,31 @@ class Variable:
 
 
 class Function:
-    def your_speed(s, zoom, small=5):
+    def your_speed(self, s, zoom, small=5):
         if zoom <= 19:
             divide = 1
         elif 19 < zoom <= 40:
-            divide = 2
-        elif 40 < zoom < 60:
             divide = 3
+        elif 40 < zoom < 60:
+            divide = 5
         else:
             divide = 5
 
         s = abs(s)
-        if s > 150:
+        if s > 100:
             return int(s / 20 / divide)
         else:
-            return int(small / divide)
+            return 1
 
-    def your_move(zoom):
+    def your_move(self, zoom):
         if zoom <= 20:
-            return 30
+            return 100
         elif zoom <= 30:
-            return 40
+            return 100
         else:
-            return 70
+            return 200
 
-    def save_ptz_data_to_csv(yaw, pitch, name="ptz_data.csv"):
+    def save_ptz_data_to_csv(self, yaw, pitch, name="ptz_data.csv"):
         file_exists = os.path.isfile(name)
         with open(name, mode='a', newline='') as file:
             writer = csv.writer(file)
@@ -65,7 +65,7 @@ class Function:
                 writer.writerow(["Timestamp", "Yaw", "Pitch"])
             writer.writerow([datetime.now(), yaw, pitch])
 
-    def init_ptz_angle(camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
+    def init_ptz_angle(self, camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
         delta_x = drone_lat - camera_lat
         delta_y = drone_lon - camera_lon
         d = math.sqrt(delta_x ** 2 + delta_y ** 2) * 6371000 * math.pi / 180
@@ -328,11 +328,36 @@ class Detect3:
             largest_rect = (int(xy[0]) - r - 5, int(xy[1]) - r - 5, r * 2 + 10, r * 2 + 10)
             x, y, w, h = largest_rect
 
-            # cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-            return frame, x, y, w, h
+            if not self.is_within_ignore_region(x, y, w, h):
+                # cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                return frame, x, y, w, h
+            else:
+                return frame, 960, 480, 0, 0
         else:
             return frame, 960, 480, 0, 0
+
+
+class DetectPink:
+    def __init__(self, vision_instance):
+        self.vision = vision_instance
+
+    def process_frame(self, frame):
+        hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        lower_pink = np.array([145, 100, 100])
+        upper_pink = np.array([175, 255, 255])
+        pink_mask = cv2.inRange(hsv_frame, lower_pink, upper_pink)
+
+        kernel = np.ones((5, 5), np.uint8)
+        pink_mask = cv2.morphologyEx(pink_mask, cv2.MORPH_OPEN, kernel)
+        contours, _ = cv2.findContours(pink_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if contours:
+            largest_contour = max(contours, key=cv2.contourArea)
+            x, y, w, h = cv2.boundingRect(largest_contour)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            return frame, x, y, w, h
+
+        return frame, 960, 480, 0, 0
 
 
 class Recognize:
@@ -398,20 +423,36 @@ class SetZoom:
         self.zoom_array1 = [1, 3, 5, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 61, 62, 63, 64]
         self.zoom_array2 = [1, 3, 5, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 120, 240, 300, 600]
 
-        self.zoom_array1 = [15, 30, 60, 61, 62]
-        self.zoom_array2 = [15, 30, 60, 120, 240]
+        # self.zoom_array1 = [15, 30, 60, 61, 62]
+        # self.zoom_array2 = [15, 30, 60, 120, 240]
 
-        self.expanding_area = 100
-        self.reducing_area = 400
+        self.expanding_area = 4000
+        self.reducing_area = 8000
 
     def change_zoom(self, w, h, current_zoom):
         area = w * h
-        if area < self.expanding_area:
+        print(area)
+        # reducing
+        if area > self.reducing_area or area == 0:
             indices = np.where(np.array(self.zoom_array1) == current_zoom)[0]
-            return self.zoom_array1[int(indices[0]) + 1]
-        if area > self.reducing_area:
+            if current_zoom == 1:
+                return self.zoom_array1[int(indices[0])]
             indices = np.where(np.array(self.zoom_array1) == current_zoom)[0]
             return self.zoom_array1[int(indices[0]) - 1]
+
+        # expanding
+        if area < self.expanding_area:
+            indices = np.where(np.array(self.zoom_array1) == current_zoom)[0]
+            if current_zoom == 64:
+                return self.zoom_array1[int(indices[0])]
+            else:
+                return self.zoom_array1[int(indices[0]) + 1]
+
+
+
+        else:
+            indices = np.where(np.array(self.zoom_array1) == current_zoom)[0]
+            return self.zoom_array1[int(indices[0])]
 
 
 if __name__ == "__main__":
@@ -424,19 +465,20 @@ if __name__ == "__main__":
     lstm = LSTM('scaler.pkl', 'lstm_drone_positions_model.tflite')
     memorize = Memorize()
     set_zoom = SetZoom()
+    function = Function()
     # endregion
 
     # region 2. initial ptz settings
     lat, lon = cube.get_pos()
     heading = cube.get_direction()
-    pan, tilt = Function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
+    pan, tilt = function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
                                         heading)
 
     ptz.yaw_pitch(pan, tilt, 50, 50)
 
     zoom = 10  # 나중에 거리에 따라 수식사용?
     ptz.zoom(zoom)
-    time.sleep(5)
+    time.sleep(3)
     # endregion
 
     # region 3. camera open
@@ -455,12 +497,12 @@ if __name__ == "__main__":
                 # cv2.putText(processed_frame, class_name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
                 step += 1
-                if step % 31 == 0:
-                    class_name = recognize.bounding_box(processed_frame, x, y, w, h)
+                # if step % 31 == 0:
+                #     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
 
-                # if step % 50 == 0:
-                #     zoom = set_zoom.change_zoom(w, h, zoom)
-                #     ptz.zoom(zoom)
+                if step % 5 == 0:
+                    zoom = set_zoom.change_zoom(w, h, zoom)
+                    ptz.zoom(zoom)
 
                 screen_frame = cv2.resize(processed_frame, (960, 480))
                 cv2.imshow('Processed RTSP Stream', screen_frame)
@@ -472,7 +514,6 @@ if __name__ == "__main__":
                 # region ptz control, speed setting
                 dx = (x + w / 2) - 960
                 dy = -(y + h / 2) + 480
-                print(w * h)
 
                 memorize.add(dx, dy)
                 past_dataset = memorize.get_all()
@@ -480,16 +521,17 @@ if __name__ == "__main__":
                     dx = lstm.predict(past_dataset)[0][0]
                     dy = lstm.predict(past_dataset)[0][1]
 
-                dx, dy = 0, 0
-
                 ptz.get_angle()
-                ptz.yaw_pitch(yaw=ptz.yaw + dx / Function.your_move(zoom),
-                              pitch=ptz.pitch + dy / Function.your_move(zoom),
-                              yaw_speed=Function.your_speed(dx, zoom),
-                              pitch_speed=Function.your_speed(dy, zoom))
+
+                print(dy / function.your_move(zoom), function.your_speed(dx, zoom))
+
+                ptz.yaw_pitch(yaw=ptz.yaw + dx / function.your_move(zoom),
+                              pitch=ptz.pitch + dy / function.your_move(zoom),
+                              yaw_speed=function.your_speed(dx, zoom),
+                              pitch_speed=function.your_speed(dy, zoom))
 
                 # endregion
-                Function.save_ptz_data_to_csv(ptz.yaw, ptz.pitch)
+                function.save_ptz_data_to_csv(ptz.yaw, ptz.pitch)
 
     finally:
         out.release()
