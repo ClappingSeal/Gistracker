@@ -19,7 +19,7 @@ from dronekit import connect
 import logging
 import keyboard
 
-tf.debugging.set_log_device_placement(True)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 
 
@@ -85,6 +85,21 @@ class Function:
         tilt = math.atan(drone_h / d) * 180 / math.pi
 
         return pan, tilt
+
+    def get_three_floats(self):
+        try:
+            user_input = input("Write lat, lon, height (ex : 35.14 126.17 50): ")
+            num1_str, num2_str, num3_str = user_input.split()
+            num1 = float(num1_str)
+            num2 = float(num2_str)
+            num3 = float(num3_str)
+            return num1, num2, num3
+        except ValueError:
+            print("Input type is wrong")
+            return None, None, None
+        except Exception as e:
+            print(f"Error : {e}")
+            return None, None, None
 
 
 class PTZ:
@@ -478,19 +493,7 @@ if __name__ == "__main__":
     function = Function()
     # endregion
 
-    # region 2. initial ptz settings
-    lat, lon = cube.get_pos()
-    heading = cube.get_direction()
-    pan, tilt = function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
-                                        heading)
-    ptz.yaw_pitch(pan, tilt, 50, 50)
-
-    zoom = 15  # 나중에 거리에 따라 수식사용?
-    ptz.zoom(zoom)
-    time.sleep(5)
-    # endregion
-
-    # region 3. camera open
+    # region 2. camera open
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     current_date_time = datetime.now().strftime('%Y%m%d0_%H%M%S')
     filename = f'{current_date_time}.avi'
@@ -499,8 +502,28 @@ if __name__ == "__main__":
     class_name = None
     # endregion
 
+    # region 3. initial ptz settings
+    lat, lon = cube.get_pos()
+    heading = cube.get_direction()
+    time.sleep(0.1)
+    # endregion
+
     try:
-        # first
+        # First : init ptz
+        while True:
+            drone_lat, drone_lon, drone_height = function.get_three_floats()
+            pan, tilt = function.init_ptz_angle(lat, lon, drone_lat, drone_lon, drone_height, heading)
+            ptz.yaw_pitch(pan, tilt, 50, 50)
+            zoom = 15  # 나중에 거리에 따라 수식사용?
+            ptz.zoom(zoom)
+            time.sleep(1)
+            if lat is not None and lon is not None:
+                print("moving")
+                break
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        # Second : handle ptz
         while True:
             if vision.frame is not None:
                 processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
@@ -525,7 +548,7 @@ if __name__ == "__main__":
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
-        # second
+        # Third : auto ptz
         while True:
             if vision.frame is not None:
                 processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
