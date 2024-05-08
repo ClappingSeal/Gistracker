@@ -25,8 +25,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 
 
-# 초기 거리에 따른 줌 넣기
-
 class Variable:
     drone_lat = 35.2268748
     drone_lon = 126.840071
@@ -509,7 +507,7 @@ if __name__ == "__main__":
     ptz = PTZ()
     vision = VISION()
     cube = CubeOrange()
-    detect = DetectPink(vision)
+    detect = Detect2(vision)
     recognize = Recognize()
     lstm = LSTM('scaler.pkl', 'lstm_drone_positions_model.tflite')
     memorize = Memorize()
