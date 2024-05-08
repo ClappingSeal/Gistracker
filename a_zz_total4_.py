@@ -17,6 +17,7 @@ import os
 import math
 from dronekit import connect
 import logging
+import keyboard
 
 tf.debugging.set_log_device_placement(True)
 logging.getLogger('dronekit').setLevel(logging.CRITICAL)
@@ -499,6 +500,32 @@ if __name__ == "__main__":
     # endregion
 
     try:
+        # first
+        while True:
+            if vision.frame is not None:
+                processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
+                screen_frame = cv2.resize(processed_frame, (960, 480))
+                cv2.imshow('Processed RTSP Stream', screen_frame)
+
+                if keyboard.is_pressed('up'):
+                    ptz.get_angle()
+                    ptz.yaw_pitch(yaw=ptz.yaw, pitch=ptz.pitch + 1, yaw_speed=1, pitch_speed=10)
+                if keyboard.is_pressed('down'):
+                    ptz.get_angle()
+                    ptz.yaw_pitch(yaw=ptz.yaw, pitch=ptz.pitch - 1, yaw_speed=1, pitch_speed=10)
+                if keyboard.is_pressed('right'):
+                    ptz.get_angle()
+                    ptz.yaw_pitch(yaw=ptz.yaw + 1, pitch=ptz.pitch, yaw_speed=10, pitch_speed=1)
+                if keyboard.is_pressed('left'):
+                    ptz.get_angle()
+                    ptz.yaw_pitch(yaw=ptz.yaw - 1, pitch=ptz.pitch, yaw_speed=10, pitch_speed=1)
+
+                if keyboard.is_pressed('space'):
+                    break
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+
+        # second
         while True:
             if vision.frame is not None:
                 processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
