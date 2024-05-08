@@ -18,6 +18,8 @@ import math
 from dronekit import connect
 import logging
 import keyboard
+import os
+import sys
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 logging.getLogger('dronekit').setLevel(logging.CRITICAL)
@@ -182,10 +184,14 @@ class VISION:
         self.frame = None
         self.stream_thread = threading.Thread(target=self.rtsp_stream_handler)
 
+        warnings.filterwarnings("ignore", category=UserWarning, module="libav")
+        logging.getLogger('libav').setLevel(logging.ERROR)
+
         self.stream_thread.start()
 
     def rtsp_stream_handler(self):
         cap = cv2.VideoCapture(self.rtsp_url)
+
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -530,18 +536,16 @@ if __name__ == "__main__":
                 screen_frame = cv2.resize(processed_frame, (960, 480))
                 cv2.imshow('Processed RTSP Stream', screen_frame)
 
+                ptz.get_angle()
                 if keyboard.is_pressed('up'):
-                    ptz.get_angle()
                     ptz.yaw_pitch(yaw=ptz.yaw, pitch=ptz.pitch + 1, yaw_speed=1, pitch_speed=10)
                 if keyboard.is_pressed('down'):
-                    ptz.get_angle()
                     ptz.yaw_pitch(yaw=ptz.yaw, pitch=ptz.pitch - 1, yaw_speed=1, pitch_speed=10)
                 if keyboard.is_pressed('right'):
-                    ptz.get_angle()
                     ptz.yaw_pitch(yaw=ptz.yaw + 1, pitch=ptz.pitch, yaw_speed=10, pitch_speed=1)
                 if keyboard.is_pressed('left'):
-                    ptz.get_angle()
                     ptz.yaw_pitch(yaw=ptz.yaw - 1, pitch=ptz.pitch, yaw_speed=10, pitch_speed=1)
+                time.sleep(0.01)
 
                 if keyboard.is_pressed('space'):
                     break
