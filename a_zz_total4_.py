@@ -466,7 +466,7 @@ class SetZoom:
         # reducing
         if area > self.reducing_area or area == 0:
             indices = np.where(np.array(self.zoom_array1) == current_zoom)[0]
-            if current_zoom == 1:
+            if current_zoom == 5:
                 return self.zoom_array1[int(indices[0])]
             indices = np.where(np.array(self.zoom_array1) == current_zoom)[0]
             return self.zoom_array1[int(indices[0]) - 1]
@@ -478,8 +478,6 @@ class SetZoom:
                 return self.zoom_array1[int(indices[0])]
             else:
                 return self.zoom_array1[int(indices[0]) + 1]
-
-
 
         else:
             indices = np.where(np.array(self.zoom_array1) == current_zoom)[0]
@@ -511,25 +509,16 @@ if __name__ == "__main__":
     # region 3. initial ptz settings
     lat, lon = cube.get_pos()
     heading = cube.get_direction()
+    pan, tilt = function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
+                                        heading)
+    ptz.yaw_pitch(pan, tilt, 50, 50)
+    zoom = 15  # 나중에 거리에 따라 수식사용?
+    ptz.zoom(zoom)
     time.sleep(0.1)
     # endregion
 
     try:
-        # First : init ptz
-        while True:
-            drone_lat, drone_lon, drone_height = function.get_three_floats()
-            pan, tilt = function.init_ptz_angle(lat, lon, drone_lat, drone_lon, drone_height, heading)
-            ptz.yaw_pitch(pan, tilt, 50, 50)
-            zoom = 15  # 나중에 거리에 따라 수식사용?
-            ptz.zoom(zoom)
-            time.sleep(1)
-            if lat is not None and lon is not None:
-                print("moving")
-                break
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-        # Second : handle ptz
+        # First : handle ptz
         while True:
             if vision.frame is not None:
                 processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
@@ -552,7 +541,7 @@ if __name__ == "__main__":
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
-        # Third : auto ptz
+        # Second : auto ptz
         while True:
             if vision.frame is not None:
                 processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
