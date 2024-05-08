@@ -25,12 +25,14 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 
 
+# 초기 거리에 따른 줌 넣기
+
 class Variable:
-    drone_lat = 35.228610
-    drone_lon = 126.841100
+    drone_lat = 35.2268748
+    drone_lon = 126.840071
     drone_height = 98
 
-    drone_lone = drone_lon - 0.0002
+    drone_lone = drone_lon - 0
 
     port_arduino = 'COM14'
     port_cube = 'COM5'
@@ -40,7 +42,12 @@ class Variable:
 class Function:
     def your_MS(self, val, zoom):
         s = abs(val)
-        if zoom <= 15:
+        if zoom <= 5:
+            if s > 100:
+                return 0.05 * val, 0.05 * s
+            else:
+                return 0.008 * val, 2
+        elif 5 < zoom <= 15:
             if s > 150:
                 return 0.03 * val, 0.03 * s
             else:
@@ -86,7 +93,20 @@ class Function:
         pan = math.atan(delta_y / delta_x) * 180 / math.pi - camera_heading
         tilt = math.atan(drone_h / d) * 180 / math.pi
 
-        return pan, tilt
+        if d >= 1000:
+            zoom = 60
+        elif 1000 > d >= 700:
+            zoom = 50
+        elif 700 > d >= 500:
+            zoom = 40
+        elif 500 > d >= 300:
+            zoom = 30
+        elif 300 > d >= 150:
+            zoom = 20
+        else:
+            zoom = 10
+
+        return pan, tilt, zoom
 
     def get_three_floats(self):
         try:
@@ -489,7 +509,7 @@ if __name__ == "__main__":
     ptz = PTZ()
     vision = VISION()
     cube = CubeOrange()
-    detect = Detect2(vision)
+    detect = DetectPink(vision)
     recognize = Recognize()
     lstm = LSTM('scaler.pkl', 'lstm_drone_positions_model.tflite')
     memorize = Memorize()
@@ -509,10 +529,9 @@ if __name__ == "__main__":
     # region 3. initial ptz settings
     lat, lon = cube.get_pos()
     heading = cube.get_direction()
-    pan, tilt = function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
+    pan, tilt, zoom = function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
                                         heading)
     ptz.yaw_pitch(pan, tilt, 50, 50)
-    zoom = 15  # 나중에 거리에 따라 수식사용?
     ptz.zoom(zoom)
     time.sleep(0.1)
     # endregion
@@ -578,6 +597,8 @@ if __name__ == "__main__":
                 ptz.get_angle()
                 move_x, vel_x = function.your_MS(dx, zoom)
                 move_y, vel_y = function.your_MS(dy, zoom)
+
+                print(move_x, move_y)
 
                 ptz.yaw_pitch(yaw=ptz.yaw + move_x, pitch=ptz.pitch + move_y, yaw_speed=vel_x, pitch_speed=vel_y)
                 # endregion
