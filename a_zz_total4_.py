@@ -163,6 +163,10 @@ class PTZ:
         )
 
     def yaw_pitch(self, yaw, pitch, yaw_speed, pitch_speed):
+        yaw = yaw % 360
+        if yaw > 180:
+            yaw -= 360
+
         if yaw > 90:
             yaw = 90
         if yaw < -90:
@@ -528,7 +532,7 @@ if __name__ == "__main__":
     lat, lon = cube.get_pos()
     heading = cube.get_direction()
     pan, tilt, zoom = function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
-                                        heading)
+                                              heading)
     ptz.yaw_pitch(pan, tilt, 50, 50)
     ptz.zoom(zoom)
     time.sleep(0.1)
