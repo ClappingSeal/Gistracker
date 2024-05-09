@@ -21,6 +21,7 @@ import keyboard
 import os
 import sys
 import datetime
+from collections import deque
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 logging.getLogger('dronekit').setLevel(logging.CRITICAL)
@@ -502,7 +503,7 @@ if __name__ == "__main__":
     ptz = PTZ()
     vision = VISION()
     cube = CubeOrange()
-    detect = Detect2(vision)
+    detect = DetectPink(vision)
     recognize = Recognize()
     lstm = LSTM('scaler.pkl', 'lstm_drone_positions_model.tflite')
     memorize = Memorize()
@@ -524,10 +525,12 @@ if __name__ == "__main__":
     heading = cube.get_direction()
     pan, tilt, zoom = function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
                                               heading)
-    pan = 45
+
     ptz.yaw_pitch(pan, tilt, 50, 50)
     ptz.zoom(zoom)
     time.sleep(0.1)
+    w_history = deque(maxlen=7)
+    h_history = deque(maxlen=7)
     # endregion
     try:
         # First : handle ptz
@@ -567,12 +570,15 @@ if __name__ == "__main__":
             if vision.frame is not None:
                 processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
                 cv2.putText(processed_frame, class_name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                w_history.append(w)
+                h_history.append(h)
 
                 step += 1
                 if step % 31 == 0:
                     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
 
                 if step % 77 == 0:
+                    w, h = sum(w_history) / len(w_history), sum(h_history) / len(h_history)
                     new_zoom = set_zoom.change_zoom(w, h, zoom)
                     if new_zoom == zoom:
                         continue
