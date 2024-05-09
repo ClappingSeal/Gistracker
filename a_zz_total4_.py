@@ -20,6 +20,7 @@ import logging
 import keyboard
 import os
 import sys
+import datetime
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 logging.getLogger('dronekit').setLevel(logging.CRITICAL)
@@ -79,13 +80,13 @@ class Function:
             else:
                 return 0, 1
 
-    def save_ptz_data_to_csv(self, yaw, pitch, name="ptz_data.csv"):
+    def save_ptz_data_to_csv(self, yaw, pitch, zoom, w, h, name="ptz_data.csv"):
         file_exists = os.path.isfile(name)
         with open(name, mode='a', newline='') as file:
             writer = csv.writer(file)
             if not file_exists:
-                writer.writerow(["Timestamp", "Yaw", "Pitch"])
-            writer.writerow([datetime.now(), yaw, pitch])
+                writer.writerow(["Timestamp", "Yaw", "Pitch", "Zoom", "Weight", "Height"])
+            writer.writerow([datetime.datetime.now(), yaw, pitch, zoom, w, h])
 
     def init_ptz_angle(self, camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
         delta_x = drone_lat - camera_lat
@@ -109,21 +110,6 @@ class Function:
             zoom = 10
 
         return pan, tilt, zoom
-
-    def get_three_floats(self):
-        try:
-            user_input = input("Write lat, lon, height (ex : 35.14 126.17 50): ")
-            num1_str, num2_str, num3_str = user_input.split()
-            num1 = float(num1_str)
-            num2 = float(num2_str)
-            num3 = float(num3_str)
-            return num1, num2, num3
-        except ValueError:
-            print("Input type is wrong")
-            return None, None, None
-        except Exception as e:
-            print(f"Error : {e}")
-            return None, None, None
 
 
 class PTZ:
@@ -525,7 +511,7 @@ if __name__ == "__main__":
 
     # region 2. camera open
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    current_date_time = datetime.now().strftime('%Y%m%d0_%H%M%S')
+    current_date_time = datetime.datetime.now().strftime('%Y%m%d0_%H%M%S')
     filename = f'{current_date_time}.avi'
     out = cv2.VideoWriter(filename, fourcc, 20.0, (1920, 960))
     step = 0
@@ -584,14 +570,20 @@ if __name__ == "__main__":
                 if step % 31 == 0:
                     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
 
-                if step % 100 == 0:
+                if step % 77 == 0:
                     new_zoom = set_zoom.change_zoom(w, h, zoom)
                     if new_zoom == zoom:
                         continue
                     zoom = new_zoom
                     ptz.zoom(zoom)
 
+                now = datetime.datetime.now()
+                time_str = now.strftime("%H:%M:%S")
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(processed_frame, time_str, (10, 50), font, 1, (50, 50, 50), 2, cv2.LINE_AA)
+
                 screen_frame = cv2.resize(processed_frame, (960, 480))
+
                 cv2.imshow('Processed RTSP Stream', screen_frame)
                 out.write(processed_frame)
 
@@ -614,7 +606,7 @@ if __name__ == "__main__":
 
                 ptz.yaw_pitch(yaw=ptz.yaw + move_x, pitch=ptz.pitch + move_y, yaw_speed=vel_x, pitch_speed=vel_y)
                 # endregion
-                function.save_ptz_data_to_csv(ptz.yaw, ptz.pitch)
+                function.save_ptz_data_to_csv(ptz.yaw, ptz.pitch, zoom, w, h)
 
     finally:
         out.release()
