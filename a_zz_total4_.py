@@ -239,7 +239,6 @@ class CubeOrange:
         return heading
 
 
-# not use
 class Detect1:
     def __init__(self, vision_instance):
         self.vision = vision_instance
