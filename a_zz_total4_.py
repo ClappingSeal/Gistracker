@@ -28,7 +28,7 @@ logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 
 # 추후 보정 필요
 # 날씨에 따라 잘 되는 detect 버전에 따라 expand, reduce area 설정
-
+# 혹시 모르니 ptz_data.csv 삭제 후 시작
 
 class Variable:
     drone_lat = 35.2268748
