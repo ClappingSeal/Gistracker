@@ -26,7 +26,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 
 
-# 추후 보정 필요
+# 추후 ptz 보정 필요
+# 추후 초점 프로토콜 1~4 선택
 # 날씨에 따라 잘 되는 detect 버전에 따라 expand, reduce area 설정
 # 혹시 모르니 ptz_data.csv 삭제 후 시작
 
@@ -523,15 +524,16 @@ if __name__ == "__main__":
     heading = cube.get_direction()
     pan, tilt, zoom = function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
                                               heading)
+    pan = 45
     ptz.yaw_pitch(pan, tilt, 50, 50)
     ptz.zoom(zoom)
     time.sleep(0.1)
     # endregion
-
     try:
         # First : handle ptz
         while True:
             if vision.frame is not None:
+                # ptz.focus(-1)
                 processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
                 screen_frame = cv2.resize(processed_frame, (960, 480))
                 cv2.imshow('Processed RTSP Stream', screen_frame)
