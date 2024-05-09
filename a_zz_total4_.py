@@ -40,8 +40,8 @@ class Variable:
     pan_compensate = 0
     tilt_compensate = 0
 
-    port_arduino = 'COM17'
-    port_cube = 'COM8'
+    port_arduino = 'COM14'
+    port_cube = 'COM5'
     ip_address = '192.168.1.3'
 
 
@@ -526,8 +526,6 @@ if __name__ == "__main__":
     heading = cube.get_direction()
     pan, tilt, zoom = function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
                                               heading)
-
-    pan, tilt, zoom = -20, 10, 15
     pan += Variable.pan_compensate
     tilt += Variable.tilt_compensate
 
