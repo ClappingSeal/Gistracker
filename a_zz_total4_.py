@@ -85,7 +85,7 @@ class Function:
         with open(name, mode='a', newline='') as file:
             writer = csv.writer(file)
             if not file_exists:
-                writer.writerow(["Timestamp", "Yaw", "Pitch", "Zoom", "Weight", "Height"])
+                writer.writerow(["Timestamp", "Yaw", "Pitch", "Zoom", "Width", "Height"])
             writer.writerow([datetime.datetime.now(), yaw, pitch, zoom, w, h])
 
     def init_ptz_angle(self, camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
