@@ -37,11 +37,11 @@ class Variable:
     drone_lon = 126.840071
     drone_height = 98
 
-    pan_compensate = -3.6035
-    tilt_compensate = -2.8125
+    pan_compensate = 0
+    tilt_compensate = 0
 
-    port_arduino = 'COM14'
-    port_cube = 'COM5'
+    port_arduino = 'COM17'
+    port_cube = 'COM8'
     ip_address = '192.168.1.3'
 
 
@@ -504,7 +504,7 @@ if __name__ == "__main__":
     ptz = PTZ()
     vision = VISION()
     cube = CubeOrange()
-    detect = DetectPink(vision)
+    detect = Detect3(vision)
     recognize = Recognize()
     lstm = LSTM('scaler.pkl', 'lstm_drone_positions_model.tflite')
     memorize = Memorize()
@@ -589,7 +589,8 @@ if __name__ == "__main__":
                 if check_ptz_difference and step % 100 == 0:
                     current_ptz_angle = ptz.get_angle()
                     ptz_difference = np.array(current_ptz_angle) - np.array(past_ptz_angle)
-                    print(ptz_difference)
+                    print("pan_compensate =", ptz_difference[0])
+                    print("tilt_compensate =", ptz_difference[1])
                     check_ptz_difference = False
 
                 if step % 77 == 0:
