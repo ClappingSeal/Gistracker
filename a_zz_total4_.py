@@ -37,7 +37,8 @@ class Variable:
     drone_lon = 126.840071
     drone_height = 98
 
-    drone_lone = drone_lon - 0
+    pan_compensate = -3.6035
+    tilt_compensate = -2.8125
 
     port_arduino = 'COM14'
     port_cube = 'COM5'
@@ -526,11 +527,16 @@ if __name__ == "__main__":
     pan, tilt, zoom = function.init_ptz_angle(lat, lon, Variable.drone_lat, Variable.drone_lon, Variable.drone_height,
                                               heading)
 
+    pan, tilt, zoom = -20, 10, 15
+    pan += Variable.pan_compensate
+    tilt += Variable.tilt_compensate
+
     ptz.yaw_pitch(pan, tilt, 50, 50)
     ptz.zoom(zoom)
     time.sleep(0.1)
     w_history = deque(maxlen=7)
     h_history = deque(maxlen=7)
+    check_ptz_difference = True
     # endregion
     try:
         # First : handle ptz
@@ -565,6 +571,8 @@ if __name__ == "__main__":
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
+        past_ptz_angle = ptz.get_angle()
+
         # Second : auto ptz
         while True:
             if vision.frame is not None:
@@ -576,6 +584,12 @@ if __name__ == "__main__":
                 step += 1
                 if step % 31 == 0:
                     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
+
+                if check_ptz_difference and step % 100 == 0:
+                    current_ptz_angle = ptz.get_angle()
+                    ptz_difference = np.array(current_ptz_angle) - np.array(past_ptz_angle)
+                    print(ptz_difference)
+                    check_ptz_difference = False
 
                 if step % 77 == 0:
                     w, h = sum(w_history) / len(w_history), sum(h_history) / len(h_history)
@@ -615,6 +629,8 @@ if __name__ == "__main__":
                 ptz.yaw_pitch(yaw=ptz.yaw + move_x, pitch=ptz.pitch + move_y, yaw_speed=vel_x, pitch_speed=vel_y)
                 # endregion
                 function.save_ptz_data_to_csv(ptz.yaw, ptz.pitch, zoom, w, h)
+
+
 
     finally:
         out.release()
