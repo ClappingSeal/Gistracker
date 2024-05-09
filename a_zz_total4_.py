@@ -25,6 +25,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 
 
+# 추후 보정 필요
+# 날씨에 따라 잘 되는 detect 버전에 따라 expand, reduce area 설정
+
+
 class Variable:
     drone_lat = 35.2268748
     drone_lon = 126.840071
@@ -555,6 +559,14 @@ if __name__ == "__main__":
                     ptz.yaw_pitch(yaw=ptz.yaw + 1, pitch=ptz.pitch, yaw_speed=10, pitch_speed=1)
                 if keyboard.is_pressed('left'):
                     ptz.yaw_pitch(yaw=ptz.yaw - 1, pitch=ptz.pitch, yaw_speed=10, pitch_speed=1)
+                if keyboard.is_pressed('w'):
+                    w, h = 1, 1
+                    zoom = set_zoom.change_zoom(w, h, zoom)
+                    ptz.zoom(zoom)
+                if keyboard.is_pressed('s'):
+                    w, h = 1000, 1000
+                    zoom = set_zoom.change_zoom(w, h, zoom)
+                    ptz.zoom(zoom)
                 time.sleep(0.01)
 
                 if keyboard.is_pressed('space'):
@@ -599,8 +611,6 @@ if __name__ == "__main__":
                 ptz.get_angle()
                 move_x, vel_x = function.your_MS(dx, zoom)
                 move_y, vel_y = function.your_MS(dy, zoom)
-
-                print(move_x, move_y)
 
                 ptz.yaw_pitch(yaw=ptz.yaw + move_x, pitch=ptz.pitch + move_y, yaw_speed=vel_x, pitch_speed=vel_y)
                 # endregion
