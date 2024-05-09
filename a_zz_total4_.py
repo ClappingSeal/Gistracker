@@ -538,6 +538,7 @@ if __name__ == "__main__":
     h_history = deque(maxlen=7)
     check_ptz_difference = True
     # endregion
+
     try:
         # First : handle ptz
         while True:
@@ -629,8 +630,6 @@ if __name__ == "__main__":
                 ptz.yaw_pitch(yaw=ptz.yaw + move_x, pitch=ptz.pitch + move_y, yaw_speed=vel_x, pitch_speed=vel_y)
                 # endregion
                 function.save_ptz_data_to_csv(ptz.yaw, ptz.pitch, zoom, w, h)
-
-
 
     finally:
         out.release()
