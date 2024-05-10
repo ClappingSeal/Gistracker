@@ -40,8 +40,8 @@ class Variable:
     pan_compensate = 0
     tilt_compensate = 0
 
-    port_arduino = 'COM17'
-    port_cube = 'COM8'
+    port_arduino = 'COM14'
+    port_cube = 'COM5'
     ip_address = '192.168.1.3'
 
 
@@ -221,6 +221,7 @@ class VISION:
 
 class CubeOrange:
     def __init__(self):
+        print("connecting cube")
         self.connection_string = Variable.port_cube
         self.baudrate = 115200
         self.vehicle = connect(self.connection_string, wait_ready=True, baud=self.baudrate, timeout=100)
@@ -341,7 +342,7 @@ class Detect3:
         self.params.minThreshold = 10
         self.params.maxThreshold = 200
         self.params.filterByArea = True
-        self.params.minArea = 10
+        self.params.minArea = 20
         self.params.maxArea = 1000
 
         self.params.filterByCircularity = False
@@ -578,6 +579,8 @@ if __name__ == "__main__":
                 cv2.putText(processed_frame, class_name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                 w_history.append(w)
                 h_history.append(h)
+
+                ptz.focus(-1)
 
                 step += 1
                 if step % 31 == 0:
