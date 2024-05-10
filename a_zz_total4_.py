@@ -33,15 +33,15 @@ logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 # 혹시 모르니 ptz_data.csv 삭제 후 시작
 
 class Variable:
-    drone_lat = 35.2268748
-    drone_lon = 126.840071
-    drone_height = 98
+    drone_lat = 35.226966
+    drone_lon = 126.840520
+    drone_height = 15
 
     pan_compensate = 0
     tilt_compensate = 0
 
-    port_arduino = 'COM14'
-    port_cube = 'COM5'
+    port_arduino = 'COM17'
+    port_cube = 'COM8'
     ip_address = '192.168.1.3'
 
 
@@ -179,7 +179,7 @@ class PTZ:
 
     def get_angle(self):
         self.ser.write(b'1\n')
-        time.sleep(0.01)
+        time.sleep(0.001)
 
         if self.ser.inWaiting() > 0:
             data = self.ser.readline().decode().strip()
@@ -472,7 +472,7 @@ class SetZoom:
         # self.zoom_array1 = [15, 30, 60, 61, 62]
         # self.zoom_array2 = [15, 30, 60, 120, 240]
 
-        self.expanding_area = 200
+        self.expanding_area = 100
         self.reducing_area = 2000
 
     def change_zoom(self, w, h, current_zoom):
@@ -580,18 +580,18 @@ if __name__ == "__main__":
                 h_history.append(h)
 
                 step += 1
-                if step % 31 == 0:
-                    class_name = recognize.bounding_box(processed_frame, x, y, w, h)
 
-                if check_ptz_difference and step % 100 == 0:
+                if check_ptz_difference and step == 100:
                     current_ptz_angle = ptz.get_angle()
                     ptz_difference = np.array(current_ptz_angle) - np.array(past_ptz_angle)
                     print("pan_compensate =", ptz_difference[0])
                     print("tilt_compensate =", ptz_difference[1])
                     check_ptz_difference = False
 
-                if step % 77 == 0:
+                if step % 101 == 0:
+                    class_name = recognize.bounding_box(processed_frame, x, y, w, h)
                     w, h = sum(w_history) / len(w_history), sum(h_history) / len(h_history)
+                    print(w, h)
                     new_zoom = set_zoom.change_zoom(w, h, zoom)
                     if new_zoom == zoom:
                         continue
