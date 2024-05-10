@@ -588,7 +588,7 @@ if __name__ == "__main__":
                     print("tilt_compensate =", ptz_difference[1])
                     check_ptz_difference = False
 
-                if step % 101 == 0:
+                if step % 301 == 0:
                     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
                     w, h = sum(w_history) / len(w_history), sum(h_history) / len(h_history)
                     print(w, h)
