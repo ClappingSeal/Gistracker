@@ -40,8 +40,8 @@ class Variable:
     pan_compensate = 0
     tilt_compensate = 0
 
-    port_arduino = 'COM17'
-    port_cube = 'COM8'
+    port_arduino = 'COM14'
+    port_cube = 'COM5'
     ip_address = '192.168.1.3'
 
 
@@ -52,7 +52,7 @@ class Function:
             if s > 100:
                 return 0.05 * val, 0.05 * s
             else:
-                return 0.007 * val, 1
+                return 0.008 * val, 2
         elif 5 < zoom <= 15:
             if s > 150:
                 return 0.03 * val, 0.03 * s
@@ -147,17 +147,9 @@ class PTZ:
             ptz_control_url,
             auth=HTTPDigestAuth(self.username, self.password)
         )
-        self.focus(0)
 
     def focus(self, num):
         ptz_control_url = f'http://{self.ip_address}/cgi-bin/ptz_ctrl?focus={num}&uid={self.uid_text}'
-        response = requests.get(
-            ptz_control_url,
-            auth=HTTPDigestAuth(self.username, self.password)
-        )
-
-    def stop_focus(self):
-        ptz_control_url = f"http://{self.ip_address}/cgi-bin/ptz_ctrl?move_x=1&move_y=1&speed=5&uid={self.uid_text}"
         response = requests.get(
             ptz_control_url,
             auth=HTTPDigestAuth(self.username, self.password)
@@ -214,14 +206,12 @@ class VISION:
 
     def rtsp_stream_handler(self):
         cap = cv2.VideoCapture(self.rtsp_url)
-        cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
         while True:
             ret, frame = cap.read()
             if not ret:
                 print("Failed to grab frame")
                 cap = cv2.VideoCapture(self.rtsp_url)
-                cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
                 continue
 
             self.frame = cv2.resize(frame, (1920, 960))
@@ -482,7 +472,7 @@ class SetZoom:
         # self.zoom_array1 = [15, 30, 60, 61, 62]
         # self.zoom_array2 = [15, 30, 60, 120, 240]
 
-        self.expanding_area = 100
+        self.expanding_area = 200
         self.reducing_area = 2000
 
     def change_zoom(self, w, h, current_zoom):
@@ -544,13 +534,13 @@ if __name__ == "__main__":
     w_history = deque(maxlen=7)
     h_history = deque(maxlen=7)
     check_ptz_difference = True
-    ptz.stop_focus()
     # endregion
 
     try:
         # First : handle ptz
         while True:
             if vision.frame is not None:
+                # ptz.focus(-1)
                 processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
                 screen_frame = cv2.resize(processed_frame, (960, 480))
                 cv2.imshow('Processed RTSP Stream', screen_frame)
@@ -590,18 +580,18 @@ if __name__ == "__main__":
                 h_history.append(h)
 
                 step += 1
+                if step % 31 == 0:
+                    class_name = recognize.bounding_box(processed_frame, x, y, w, h)
 
-                if check_ptz_difference and step == 100:
+                if check_ptz_difference and step % 100 == 0:
                     current_ptz_angle = ptz.get_angle()
                     ptz_difference = np.array(current_ptz_angle) - np.array(past_ptz_angle)
                     print("pan_compensate =", ptz_difference[0])
                     print("tilt_compensate =", ptz_difference[1])
                     check_ptz_difference = False
 
-                if step % 101 == 0:
-                    class_name = recognize.bounding_box(processed_frame, x, y, w, h)
+                if step % 77 == 0:
                     w, h = sum(w_history) / len(w_history), sum(h_history) / len(h_history)
-                    print(w, h)
                     new_zoom = set_zoom.change_zoom(w, h, zoom)
                     if new_zoom == zoom:
                         continue
