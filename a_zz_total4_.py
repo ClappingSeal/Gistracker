@@ -40,8 +40,8 @@ class Variable:
     pan_compensate = 0
     tilt_compensate = 0
 
-    port_arduino = 'COM14'
-    port_cube = 'COM5'
+    port_arduino = 'COM17'
+    port_cube = 'COM8'
     ip_address = '192.168.1.3'
 
 
