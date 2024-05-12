@@ -580,8 +580,6 @@ if __name__ == "__main__":
                 w_history.append(w)
                 h_history.append(h)
 
-                ptz.focus(-1)
-
                 step += 1
                 if step % 31 == 0:
                     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
