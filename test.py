@@ -1,60 +1,121 @@
+import serial
+import time
+import requests
+from requests.auth import HTTPDigestAuth
+import xml.etree.ElementTree as ET
 import cv2
+import threading
+import numpy as np
+from datetime import datetime
+from ultralytics import YOLO
+from operator import add
+import tensorflow as tf
+import joblib
+import warnings
+import csv
+import os
+import math
+from dronekit import connect
+import logging
+import keyboard
+import os
+import sys
+import datetime
+from collections import deque
 
-# 마우스 콜백 함수
-def draw_rectangle(event, x, y, flags, param):
-    global x_start, y_start, x_end, y_end, drawing, track_window, tracker_initialized, tracker
 
-    if event == cv2.EVENT_LBUTTONDOWN:
-        drawing = True
-        x_start, y_start = x, y
+class Variable:
+    drone_lat = 35.2275168
+    drone_lon = 126.8394166
+    drone_height = 100
 
-    elif event == cv2.EVENT_MOUSEMOVE:
-        if drawing:
-            x_end, y_end = x, y
+    pan_compensate = 0
+    tilt_compensate = 0
 
-    elif event == cv2.EVENT_LBUTTONUP:
-        drawing = False
-        x_end, y_end = x, y
+    port_arduino = 'COM14'
+    port_cube = 'COM5'
+    ip_address = '192.168.1.3'
 
-        # 선택된 영역으로 트래커 초기화
-        if not tracker_initialized:
-            track_window = (x_start, y_start, x_end - x_start, y_end - y_start)
-            tracker = cv2.TrackerKCF_create()
-            tracker.init(frame, track_window)
-            tracker_initialized = True
 
-def main():
-    global x_start, y_start, x_end, y_end, drawing, tracker_initialized, tracker, frame
-    drawing = False
-    tracker_initialized = False
-    x_start = y_start = x_end = y_end = 0
+class Function:
+    def your_MS(self, val, zoom):
+        s = abs(val)
+        if zoom <= 5:
+            if s > 100:
+                return 0.05 * val, 0.05 * s
+            else:
+                return 0.008 * val, 2
+        elif 5 < zoom <= 15:
+            if s > 150:
+                return 0.03 * val, 0.03 * s
+            else:
+                return 0.005 * val, 1
 
-    cap = cv2.VideoCapture(0)
-    cv2.namedWindow("Frame")
-    cv2.setMouseCallback("Frame", draw_rectangle)
+        elif 15 < zoom <= 30:
+            if s > 150:
+                return 0.01 * val, 0.01 * s
+            else:
+                return 0.001 * val, 1
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+        elif 30 < zoom <= 50:
+            if s > 200:
+                return 0.002 * val, 0.01 * s
+            else:
+                return 0.001 * val, 1
 
-        # 트래커가 초기화된 경우, 트래킹 업데이트
-        if tracker_initialized:
-            success, track_window = tracker.update(frame)
-            if success:
-                x, y, w, h = [int(v) for v in track_window]
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+        elif 50 < zoom <= 60:
+            if s > 200:
+                return 0.0012 * val, 0.006 * s
+            else:
+                return 0.0008 * val, 1
 
-        # 마우스로 선택 영역을 그림 (트래커 초기화 전에만)
-        if not tracker_initialized and drawing:
-            cv2.rectangle(frame, (x_start, y_start), (x_end, y_end), (0, 255, 0), 2)
+        elif 60 < zoom <= 61:
+            if s > 250:
+                return 0.0008 * val, 1
+            else:
+                return 0, 1
 
-        cv2.imshow("Frame", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    def save_ptz_data_to_csv(self, yaw, pitch, zoom, w, h, name="ptz_data.csv"):
+        file_exists = os.path.isfile(name)
+        with open(name, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            if not file_exists:
+                writer.writerow(["Timestamp", "Yaw", "Pitch", "Zoom", "Width", "Height"])
+            writer.writerow([datetime.datetime.now(), yaw, pitch, zoom, w, h])
 
-    cap.release()
-    cv2.destroyAllWindows()
+    def init_ptz_angle(self, camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
+        delta_lat = math.radians(drone_lat - camera_lat)
+        delta_lon = math.radians(drone_lon - camera_lon)
+        avg_lat = math.radians((camera_lat + drone_lat) / 2)
+        delta_x = delta_lon * math.cos(avg_lat) * 6371000
+        delta_y = delta_lat * 6371000
 
-if __name__ == "__main__":
-    main()
+        d = math.sqrt(delta_x ** 2 + delta_y ** 2)
+        pan_radians = math.atan2(delta_x, delta_y)
+        pan_degrees = math.degrees(pan_radians)
+
+        pan = (pan_degrees - camera_heading + 360) % 360
+        if pan > 180:
+            pan -= 360
+
+        tilt = math.degrees(math.atan2(drone_h, d))
+
+        if d >= 1000:
+            zoom = 60
+        elif 1000 > d >= 700:
+            zoom = 50
+        elif 700 > d >= 500:
+            zoom = 40
+        elif 500 > d >= 300:
+            zoom = 30
+        elif 300 > d >= 150:
+            zoom = 20
+        else:
+            zoom = 10
+
+        return pan, tilt, zoom
+
+
+var = Variable()
+fun = Function()
+print(fun.init_ptz_angle(35.2266535, 126.8406746, 35.2271049, 126.8386817, var.drone_height, 270))
