@@ -92,12 +92,14 @@ class Function:
             writer.writerow([datetime.datetime.now(), yaw, pitch, zoom, w, h])
 
     def init_ptz_angle(self, camera_lat, camera_lon, drone_lat, drone_lon, drone_h, camera_heading):
-        delta_x = drone_lat - camera_lat
-        delta_y = drone_lon - camera_lon
+        delta_lat = drone_lat - camera_lat
+        delta_lon = drone_lon - camera_lon
+        delta_x = delta_lon * math.cos(math.radians((camera_lat + drone_lat) / 2))
+        delta_y = delta_lat
         d = math.sqrt(delta_x ** 2 + delta_y ** 2) * 6371000 * math.pi / 180
 
-        pan = math.atan(delta_y / delta_x) * 180 / math.pi - camera_heading
-        tilt = math.atan(drone_h / d) * 180 / math.pi
+        pan = math.degrees(math.atan2(delta_y, delta_x)) - camera_heading
+        tilt = math.degrees(math.atan2(drone_h, d))
 
         if d >= 1000:
             zoom = 60
