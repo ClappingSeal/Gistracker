@@ -1,110 +1,60 @@
-import serial
-import time
-import requests
-from requests.auth import HTTPDigestAuth
-import xml.etree.ElementTree as ET
 import cv2
-import threading
-import numpy as np
-from datetime import datetime
-from ultralytics import YOLO
-from operator import add
-import tensorflow as tf
-import joblib
-import warnings
-import csv
-import os
-import math
-from dronekit import connect, VehicleMode, Command, LocationGlobalRelative
-from pymavlink import mavutil
-import logging
 
-logging.getLogger('dronekit').setLevel(logging.CRITICAL)
+# 마우스 콜백 함수
+def draw_rectangle(event, x, y, flags, param):
+    global x_start, y_start, x_end, y_end, drawing, track_window, tracker_initialized, tracker
 
+    if event == cv2.EVENT_LBUTTONDOWN:
+        drawing = True
+        x_start, y_start = x, y
 
-class Variable:
-    port_arduino = 'COM14'
-    port_cube = 'COM5'
-    ip_address = '192.168.1.3'
+    elif event == cv2.EVENT_MOUSEMOVE:
+        if drawing:
+            x_end, y_end = x, y
 
+    elif event == cv2.EVENT_LBUTTONUP:
+        drawing = False
+        x_end, y_end = x, y
 
-class CubeOrange:
-    def __init__(self):
-        self.connection_string = Variable.port_cube
-        self.baudrate = 115200
-        self.vehicle = connect(self.connection_string, wait_ready=True, baud=self.baudrate, timeout=100)
+        # 선택된 영역으로 트래커 초기화
+        if not tracker_initialized:
+            track_window = (x_start, y_start, x_end - x_start, y_end - y_start)
+            tracker = cv2.TrackerKCF_create()
+            tracker.init(frame, track_window)
+            tracker_initialized = True
 
-    def get_pos(self):
-        init_lat = self.vehicle.location.global_relative_frame.lat
-        init_lon = self.vehicle.location.global_relative_frame.lon
+def main():
+    global x_start, y_start, x_end, y_end, drawing, tracker_initialized, tracker, frame
+    drawing = False
+    tracker_initialized = False
+    x_start = y_start = x_end = y_end = 0
 
-        if init_lat == 0 or init_lon == 0:
-            print("Go outside!")
+    cap = cv2.VideoCapture(0)
+    cv2.namedWindow("Frame")
+    cv2.setMouseCallback("Frame", draw_rectangle)
 
-        return init_lat, init_lon
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-    def get_direction(self):
-        heading = self.vehicle.heading
-        return heading
+        # 트래커가 초기화된 경우, 트래킹 업데이트
+        if tracker_initialized:
+            success, track_window = tracker.update(frame)
+            if success:
+                x, y, w, h = [int(v) for v in track_window]
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
+        # 마우스로 선택 영역을 그림 (트래커 초기화 전에만)
+        if not tracker_initialized and drawing:
+            cv2.rectangle(frame, (x_start, y_start), (x_end, y_end), (0, 255, 0), 2)
 
-class PTZ:
-    def __init__(self):
-        print("connecting ptz...")
-        self.port = Variable.port_arduino
-        self.baud_rate = 115200
-        self.ser = serial.Serial(self.port, self.baud_rate)
+        cv2.imshow("Frame", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-        self.yaw = 0
-        self.pitch = 0
+    cap.release()
+    cv2.destroyAllWindows()
 
-    def set_motor(self, angle1, angle2, velocity1, velocity2):
-        command = f"{angle1} {velocity1} {angle2} {velocity2}\n"
-        self.ser.write(command.encode())
-
-    def yaw_pitch(self, yaw, pitch, yaw_speed, pitch_speed):
-        if yaw > 90:
-            yaw = 90
-        if yaw < -90:
-            yaw = -90
-
-        if pitch > 60:
-            pitch = 60
-        if pitch < 0:
-            pitch = 0
-
-        yaw = int(((180 - yaw) / 90 * 1024))
-        pitch = int(2048 + pitch / 90 * 1024)
-        yaw_speed = int(yaw_speed)
-        pitch_speed = int(pitch_speed)
-
-        self.set_motor(yaw, pitch, yaw_speed, pitch_speed)
-
-    def get_angle(self):
-        self.ser.write(b'1\n')
-        time.sleep(0.1)
-
-        if self.ser.inWaiting() > 0:
-            data = self.ser.readline().decode().strip()
-            angles = data.split(' ')
-
-            if len(angles) == 2:
-                self.yaw = (2048 - int(angles[0])) / 1024 * 90
-                self.pitch = (-2048 + int(angles[1])) / 1024 * 90
-
-        return self.yaw, self.pitch
-
-
-ptz = PTZ()
-
-ptz.yaw_pitch(0, 5, 100, 1)
-time.sleep(3)
-print(ptz.get_angle())
-
-ptz.yaw_pitch(0, 5.1, 200, 2)
-time.sleep(3)
-print(ptz.get_angle())
-
-ptz.yaw_pitch(0, 6, 500, 5)
-time.sleep(3)
-print(ptz.get_angle())
+if __name__ == "__main__":
+    main()
