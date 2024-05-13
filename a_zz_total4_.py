@@ -33,7 +33,7 @@ logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 # ptz_data.csv 삭제 후 재시작, ptz_data.csv 가 필요하면 이름 바꾸기
 
 class Variable:
-    mission_num = "1"
+    mission_num = "3"
     drone_lat = 35.2268748
     drone_lon = 126.840071
     drone_height = 98
@@ -611,9 +611,6 @@ if __name__ == "__main__":
 
         past_ptz_angle = ptz.get_angle()
 
-        start_time = time.time()
-        end_time = 0
-
         # Second : auto ptz
         while True:
             if vision.frame is not None:
@@ -641,7 +638,7 @@ if __name__ == "__main__":
                     zoom = new_zoom
                     ptz.zoom(zoom)
 
-                if step > 9000 and step % 100 == 0:
+                if step > 90 and step % 100 == 0:
                     crop.save_cropped(processed_frame, x, y, w, h)
 
                 cv2.putText(processed_frame, class_name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
