@@ -28,11 +28,12 @@ logging.getLogger('dronekit').setLevel(logging.CRITICAL)
 
 
 # 추후 ptz 보정 필요
-# 추후 초점 프로토콜 1~4 선택
+# 추후 초점 프로토콜 1~4 선택 (완료)
 # 날씨에 따라 잘 되는 detect 버전에 따라 expand, reduce area 설정
-# 혹시 모르니 ptz_data.csv 삭제 후 시작
+# ptz_data.csv 삭제 후 재시작, ptz_data.csv 가 필요하면 이름 바꾸기
 
 class Variable:
+    mission_num = "1"
     drone_lat = 35.2268748
     drone_lon = 126.840071
     drone_height = 98
@@ -84,8 +85,14 @@ class Function:
                 return 0, 1
 
     def save_ptz_data_to_csv(self, yaw, pitch, zoom, w, h, name="ptz_data.csv"):
-        file_exists = os.path.isfile(name)
-        with open(name, mode='a', newline='') as file:
+        folder = Variable.mission_num
+        full_path = os.path.join(folder, name)
+        file_exists = os.path.isfile(full_path)
+
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        with open(full_path, mode='a', newline='') as file:
             writer = csv.writer(file)
             if not file_exists:
                 writer.writerow(["Timestamp", "Yaw", "Pitch", "Zoom", "Width", "Height"])
@@ -439,6 +446,22 @@ class Recognize:
             return self.class_name
 
 
+class CropImage:
+    def __init__(self):
+        self.a = "hello"
+
+    def save_cropped(self, frame, x, y, w, h):
+        folder = Variable.mission_num
+
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        cropped = frame[(y - 30):(y + h + 30), (x - 30):(x + w + 30)]
+        current_time = datetime.datetime.now().strftime("%H%M%S")
+        filename = f"{folder}/cropped_{current_time}.png"
+        cv2.imwrite(filename, cropped)
+
+
 class LSTM:
     def __init__(self, scaler_path, model_path):
         warnings.filterwarnings("ignore", category=UserWarning)  # 경고 무시
@@ -519,13 +542,20 @@ if __name__ == "__main__":
     memorize = Memorize()
     set_zoom = SetZoom()
     function = Function()
+    crop = CropImage()
     # endregion
 
     # region 2. camera open
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     current_date_time = datetime.datetime.now().strftime('%Y%m%d0_%H%M%S')
     filename = f'{current_date_time}.avi'
-    out = cv2.VideoWriter(filename, fourcc, 20.0, (1920, 960))
+    folder = Variable.mission_num
+    full_path = os.path.join(folder, filename)
+
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    out = cv2.VideoWriter(full_path, fourcc, 20.0, (1920, 960))
     step = 0
     class_name = None
     # endregion
@@ -581,15 +611,18 @@ if __name__ == "__main__":
 
         past_ptz_angle = ptz.get_angle()
 
+        start_time = time.time()
+        end_time = 0
+
         # Second : auto ptz
         while True:
             if vision.frame is not None:
                 processed_frame, x, y, w, h = detect.process_frame(vision.frame.copy())
-                cv2.putText(processed_frame, class_name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                 w_history.append(w)
                 h_history.append(h)
 
                 step += 1
+
                 if step % 31 == 0:
                     class_name = recognize.bounding_box(processed_frame, x, y, w, h)
 
@@ -608,6 +641,10 @@ if __name__ == "__main__":
                     zoom = new_zoom
                     ptz.zoom(zoom)
 
+                if step > 9000 and step % 100 == 0:
+                    crop.save_cropped(processed_frame, x, y, w, h)
+
+                cv2.putText(processed_frame, class_name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                 now = datetime.datetime.now()
                 time_str = now.strftime("%H:%M:%S")
                 font = cv2.FONT_HERSHEY_SIMPLEX
