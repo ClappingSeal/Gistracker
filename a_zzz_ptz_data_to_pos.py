@@ -12,7 +12,7 @@ import torchvision.transforms as transforms
 from model import Model
 import os
 
-Mission_num = 3
+Mission_num = 1
 
 
 class YourAbsolutePos:
